@@ -10,6 +10,8 @@ def sysCall_init():
     global constants_of_k
     global current_joint
     global target
+    global max_min_torque
+    max_min_torque = [0.5,1,0.55,0.15,0.05,0.02]
     constants_of_k = [(0.165,0.04,0.45),(0.1,0.015,0.43),(0.00,0.000,0.000),
                                 (0.06,0.03,0.09),(0.25,0.0,1.00),(0.01,0.15,0.006)]
     target_angle = pi/2
@@ -61,7 +63,7 @@ def sysCall_actuation():
     if target < target_angle:
         target += pi/180
     # put your actuation code here
-    mpos_PID_control(current_joint,constants_of_k,target,0.05,0.1)
+    mpos_PID_control(current_joint,constants_of_k,target,-max_min_torque[joints.index(current_joint)], max_min_torque[joints.index(current_joint)])
     print(f"joint {current_joint}: {sim.getJointTargetForce(current_joint)}")
     sim.setGraphStreamValue(graph,joint_target_angle,target)
     sim.setGraphStreamValue(graph,joint_goal_angle,target_angle)
