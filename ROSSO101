@@ -1,0 +1,68 @@
+#This script is meant to be ran using Coppelia Sim. Please open ROSSO101.ttt, and add script object then
+#then attach to the root of the model.
+
+pi = 3.14159265359
+def sysCall_init():
+    sim = require('sim')
+    global error_int 
+    global joints
+    global current_angle
+    global constants_of_k
+    constants_of_k = [(1,0.15,0.88),(0.01,0.00,0.00),(0.00,0.000,0.000),
+                                (08.1,0.000,5.05),(0.25,0.0,1.00),(0.01,0.15,0.006)]
+    current_angle = 0
+    joints = sim.getObjectsInTree(sim.getObject(".."),sim.sceneobject_joint)
+    error_int = [0 for i in range(len(joints))]
+    for i in range(6):
+        sim.setJointTargetPosition(joints[i], 0)
+        print(f"joint{joints[i]} ({sim.getJointPosition(joints[i])})")
+    global graph
+    graph = sim.getObject('../graph')
+    global joint_angle
+    global joint_velocity
+    joint_angle = sim.addGraphStream(graph, "joint_angle", "rad")
+    joint_velocity = sim.addGraphStream(graph,"joint_velocity", "m/s")
+    # Instead of using globals, you can do e.g.:
+    # self.myVariable = 21000000
+def mpos_PID_control(joint, k_constants,reset_I={}):
+    pTerm = 0
+    global error_int
+    vTerm = 0
+    iTerm = 0 
+    kp = k_constants[joints.index(joint)][0]
+    kd = k_constants[joints.index(joint)][1]
+    ki = k_constants[joints.index(joint)][2]
+    error_t = sim.getJointTargetPosition(joint) - sim.getJointPosition(joint)
+    error_vel = sim.getJointTargetVelocity(joint) - sim.getJointVelocity(joint)
+    pTerm = error_t * kp
+    vTerm = error_vel * kd
+    if reset_I:
+        error_int[joints.index(joint)] = 0
+    else:
+        error_int[joints.index(joint)] += error_t * sim.getSimulationTimeStep()
+
+    iTerm = error_int[joints.index(joint)] * ki
+
+    torque = pTerm+vTerm+iTerm
+    return sim.setJointTargetForce(joint,torque)
+def sysCall_actuation():
+    global current_angle
+    # put your actuation code here
+    
+    sim.setJointTargetPosition(joints[4], current_angle)
+    mpos_PID_control(joints[4],constants_of_k)
+    print(f"joint {joints[1]}: {sim.getJointPosition(joints[1])}")
+    sim.setGraphStreamValue(graph,joint_angle,sim.getJointPosition(joints[4]))
+    sim.setGraphStreamValue(graph,joint_velocity,sim.getJointVelocity(joints[4]))
+    current_angle += pi/2
+    
+
+def sysCall_sensing():
+    # put your sensing code here
+    pass
+
+def sysCall_cleanup():
+    # do some clean-up here
+    pass
+
+# See the user manual or the available code snippets for additional callback functions and details
