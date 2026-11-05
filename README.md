@@ -23,3 +23,4 @@ This phase involves configuring the right node configuration to both monitor and
 ## Phase 3: Assemble and Program the Robot.
 Use the provided instructions from the Hugging Face repo to assemble the robot and program the motors.
 
+#CoppeliaSim V4.10 is required to open the scene file and can be loaded by clicking "Open Scene".
