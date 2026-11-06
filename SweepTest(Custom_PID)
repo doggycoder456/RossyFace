@@ -1,0 +1,93 @@
+#This script is meant to be ran using Coppelia Sim. Please open ROSSO101.ttt, and add script object then
+#then attach to the root of the model.
+
+pi = 3.14159265359
+def sysCall_init():
+    sim = require('sim')
+    global error_int 
+    global joints
+    global target_angle
+    global constants_of_k
+    global current_joint
+    global target
+    global joint_t
+    global max_min_torque
+    global angle_limits_deg
+    joint_t = 0
+    angle_limits_deg= [(-110,220),(-100, 200),(-96.83,193.66),(-95,190),(-157.211, 320),(-10, 110)]
+    max_min_torque = [0.5,1,0.55,0.15,0.05,0.02]
+    constants_of_k = [(0.185,0.04,0.45),(0.175,0.03,0.06),(0.86,0.000,0.000),
+                                (0.06,0.03,0.09),(0.25,0.0,1.00),(0.01,0.15,0.006)]
+    target_angle = pi/2
+    target = 0
+    joints = sim.getObjectsInTree(sim.getObject(".."),sim.sceneobject_joint)
+    current_joint = joints[0]
+    error_int = [0 for i in range(len(joints))]
+    for i in range(6):
+        sim.setJointTargetPosition(joints[i], 0)
+        print(f"joint{joints[i]} ({sim.getJointPosition(joints[i])})")
+    global graph
+    graph = sim.getObject('../graph')
+    global joint_angle
+    global joint_velocity
+    global joint_target_angle
+    global joint_goal_angle
+    joint_angle = sim.addGraphStream(graph, "joint_angle", "rad",0,[1,0,0])
+    joint_velocity = sim.addGraphStream(graph,"joint_velocity", "rad/s",0,[0,1,0])
+    joint_target_angle = sim.addGraphStream(graph,"joint_target", "rad", 0,[1,1,0])
+    joint_goal_angle = sim.addGraphStream(graph,"joint_goal", "rad",0,[1,1,1])
+    # Instead of using globals, you can do e.g.:
+    # self.myVariable = 21000000
+
+def convert_angles_to_deg(angle):
+    return angle * 180/pi
+
+def convert_angles_to_rad(angle):
+    return angle * pi/180
+
+
+def mpos_PID_control(joint, k_constants,target_pos,max_i_torque,min_i_torque,reset_I=False):
+    pTerm = 0
+    global error_int
+    vTerm = 0
+    iTerm = 0 
+    kp = k_constants[joints.index(joint)][0]
+    kd = k_constants[joints.index(joint)][1]
+    ki = k_constants[joints.index(joint)][2]
+    error_t = target_pos- sim.getJointPosition(joint)
+    error_vel = 0 - sim.getJointVelocity(joint)
+    pTerm = error_t * kp
+    vTerm = error_vel * kd
+    if reset_I:
+        error_int[joints.index(joint)] = 0
+    else:
+        error_int[joints.index(joint)] += error_t * sim.getSimulationTimeStep()
+    if ki != 0 and  error_int[joints.index(joint)] < min_i_torque/ki:
+        error_int[joints.index(joint)] = min_i_torque/ki
+    if ki != 0 and  error_int[joints.index(joint)] > max_i_torque/ki:
+        error_int[joints.index(joint)] = max_i_torque/ki
+    iTerm = error_int[joints.index(joint)] * ki
+    torque = pTerm+vTerm+iTerm
+    return sim.setJointTargetForce(joint,torque)
+
+def sweep_test(joint):
+    for angle in range(int(angle_limits_deg[joints.index(joint)][0]),int(angle_limits_deg[joints.index(joint)][1])):
+
+        mpos_PID_control(joint, constants_of_k, angle, max_min_torque[joints.index(joint)],max_min_torque[joints.index(joint)], reset_I=True)
+        sim.setGraphStreamValue(graph,joint_angle,sim.getJointPosition(joint))
+        sim.setGraphStreamValue(graph,joint_velocity,sim.getJointVelocity(joint))
+def sysCall_actuation():
+    for i in range(6):
+        mpos_PID_control(joints[i], constants_of_k, 0, max_min_torque[joints.index(joints[i])],max_min_torque[joints.index(joints[i])], reset_I=True)
+    for i in range(6):
+        current_joint = joints[i]
+        sweep_test(current_joint)
+        print(sim.getSimulationTime(),current_joint, sim.getJointPosition(current_joint), (convert_angles_to_rad(angle_limits_deg[joints.index(current_joint)][0]), convert_angles_to_rad(angle_limits_deg[joints.index(current_joint)][1])))
+
+def sysCall_sensing():
+    # put your sensing code here
+    pass
+
+def sysCall_cleanup():
+    # do some clean-up here
+    sim.resetGraph(graph)
