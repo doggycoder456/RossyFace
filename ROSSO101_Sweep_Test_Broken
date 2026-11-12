@@ -1,0 +1,78 @@
+#This script is meant to be ran using Coppelia Sim. Please open ROSSO101.ttt, and add script object then
+#then attach to the root of the model.
+
+pi = 3.14159265359
+def sysCall_init():
+    sim = require('sim')
+    global error_int 
+    global joints
+    global target_angle
+    global constants_of_k
+    global current_joint
+    global target
+    global max_min_torque
+    global current_angle
+    global target_angle
+    global error_int
+    target_angle = pi/2
+    current_angle = 0
+    joints = sim.getObjectsInTree(sim.getObject(".."),sim.sceneobject_joint)
+    max_min_torque = [0.5,1,0.55,0.15,0.05,0.02]
+    constants_of_k = [(0.165,0.04,0.45),(0.1,0.015,0.43),(0.00,0.000,0.000),
+                                (0.06,0.03,0.09),(0.25,0.0,1.00),(0.01,0.15,0.006)]
+    error_int = [0 for i in range(len(joints))]
+    string = "time,"
+    for i in range(6):
+        string += f"joint{i}, "
+    print(string)
+    # Instead of using globals, you can do e.g.:
+    # self.myVariable = 21000000
+  
+def mpos_PID_control(joint,target_pos,reset_I=False):
+    pTerm = 0
+    global error_int
+    vTerm = 0
+    iTerm = 0
+    index_joint = joints.index(joint)
+    kp = constants_of_k[index_joint][0]
+    kd = constants_of_k[index_joint][1]
+    ki = constants_of_k[index_joint][2]
+    error_t = target_pos- sim.getJointPosition(joint)
+    error_vel = 0 - sim.getJointVelocity(joint)
+    pTerm = error_t * kp
+    vTerm = error_vel * kd
+    if reset_I:
+        error_int[index_joint] = 0
+    else:
+        error_int[index_joint] += error_t * sim.getSimulationTimeStep()
+    if ki != 0 and  error_int[index_joint] < max_min_torque[index_joint]/ki:
+        error_int[index_joint] = -max_min_torque[index_joint]/ki
+    if ki != 0 and  error_int[index_joint] > max_min_torque[index_joint]/ki and ki != 0:
+        error_int[index_joint] = max_min_torque[index_joint]/ki
+    iTerm = error_int[index_joint] * ki
+    torque = pTerm+vTerm+iTerm
+    if torque > 3:
+        torque = 3
+    if torque < -3:
+        torque = -3
+    return sim.setJointTargetForce(joint,torque)
+def sysCall_actuation():
+    print(sim.getSimulationTime(),sim.getJointPosition(joints[0]),sim.getJointPosition(joints[1]),sim.getJointPosition(joints[2],sim.getJointPosition(joints[3],sim.getJointPosition(joints[4],sim.getJointPosition(joints[5])))))
+def sysCall_sensing():
+    # put your sensing code here
+    pass
+
+def sysCall_cleanup():
+    # do some clean-up here
+    pass
+def sysCall_joint():
+    global current_angle
+    for i in range(6):
+        mpos_PID_control(joints[i], current_angle)
+    if current_angle < target_angle:
+        current_angle+=pi/180
+    if current_angle > target_angle:
+        current_angle = target_angle
+    
+         
+# See the user manual or the available code snippets for additional callback functions and details
