@@ -18,7 +18,7 @@ This project aims to integrate ROS (Robot Operating System), the SO-101, and Cop
 
 
 
-#RoadMap
+# RoadMap
 
 ## Phase 1: Construct Simulation of SO-101 in Coppelia
 This phase involves reassembling the SO-101 into a usable model for simulation in CoppeliaSim. Next, configure this model with the correct joint parameters.
